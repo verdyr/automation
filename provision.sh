@@ -23,9 +23,9 @@ base64_encoded=`echo -n $maprticket | base64 -w 0`
 sed -i s#^\ \ CONTAINER_TICKET:.*#\ \ CONTAINER_TICKET:\ $base64_encoded#g /tmp/secrets.yaml
 kubectl create -f /tmp/secrets.yaml
 sleep 10
-kubectl create -f $(backend)-pvc.yaml
+kubectl create -f ${backend}-pvc.yaml
 sleep 10 
-kubectl create -f $(backend)-deploy.yaml
+kubectl create -f ${backend}-deploy.yaml
 
 while true;
 do
@@ -39,29 +39,29 @@ fi
 done
 
 # Execute configuration in the back end - TO be added
-kubectl exec -n $k8s_namespace `kubectl get pod -n mapr-ts | grep $backend | awk '{print $1}'` -- influx --execute "create database coordinates"
+kubectl exec -n $k8s_namespace `kubectl get pod -n $k8s_namespace | grep $backend | awk '{print $1}'` $backend_configs_init
 
 # Deploy application container
 backendIP=`kubectl get pod -n $k8s_namespace -o wide | grep $backend | awk '{print $6}'`
 /usr/bin/cp $(application)-deploy.yaml /tmp
-sed -i s#backendIP#$backendIP#g /tmp/$(application)-deploy.yaml
-kubectl create -f $(application)-pvc.yaml
+sed -i s#backendIP#$backendIP#g /tmp/${application}-deploy.yaml
+kubectl create -f ${application}-pvc.yaml
 sleep 5
-kubectl create -f /tmp/$(application)-deploy.yaml
+kubectl create -f /tmp/${application}-deploy.yaml
 
 # Deploy Monitoring and dashboard
 kubectl create -f grafana-deploy.yaml
 kubectl create -f grafana-svc.yaml
 while true;
 do
-output=`kubectl get svc -n $ks8_namespace -o wide | grep grafana-svc |grep pending | wc -l`
+output=`kubectl get svc -n $k8s_namespace -o wide | grep grafana-svc |grep pending | wc -l`
 if [[ $output -eq 1 ]]; then
  sleep 5
  t=`date`
  echo "$t Waiting for load balancer to become available ...."
 else
  sleep 20 
- sh config-grafana $(application_dashboard).json
+ sh config-grafana ${application_dashboard}.json
  echo "Configuring Grafana..."
  sleep 10 
  ip=`kubectl get svc -n $k8s_namespace -o wide| grep grafana-svc | awk '{print $4}'`
